@@ -3,7 +3,7 @@ name: AWS Terraform Deployment
 on:
   push:
     paths:
-      - 'aws-*/**'  # Matches all AWS service folders
+      - 'styles-*/**'  # Matches all AWS service folders
 
 jobs:
   detect-changes:
