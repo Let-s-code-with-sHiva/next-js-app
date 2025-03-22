@@ -1,0 +1,46 @@
+name: AWS Terraform Deployment
+
+on:
+  push:
+    paths:
+      - 'aws-*/**'  # Matches all AWS service folders
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed-services: ${{ steps.detect.outputs.changed-services }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Detect Changed AWS Services
+        id: detect
+        run: |
+          CHANGED_SERVICES=$(git diff --name-only HEAD^ HEAD | grep -oE '^aws-[^/]+' | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          echo "Detected changed services: $CHANGED_SERVICES"
+          echo "changed-services=$CHANGED_SERVICES" >> $GITHUB_ENV
+          echo "::set-output name=changed-services::$CHANGED_SERVICES"
+
+  deploy:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.changed-services) }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1  # Change as needed
+
+      - name: Terraform Init & Apply for ${{ matrix.service }}
+        run: |
+          cd ${{ matrix.service }}
+          terraform init
+          terraform apply -auto-approve
